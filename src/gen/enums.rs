@@ -98,10 +98,11 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
             // Prepare constructor parameters
             let constructor_params = variant_obj.fields().iter().enumerate().map(|(i, field)| {
                 let param_name = field_name(field.name(), i);
+                let param_type = field.as_type().as_renderable().render_type(&field.as_type(), type_helper).to_string().expect("Could not stringify type").replace("Error", "Exception");
                 if variant_obj.fields().len() > 1 {
-                    quote!(required this.$param_name)
+                    quote!(required $param_type this.$param_name)
                 } else {
-                    quote!(this.$param_name)
+                    quote!($param_type this.$param_name)
                 }
             }).collect::<Vec<_>>();
             
@@ -113,19 +114,19 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
             
             variants.push(quote!{
                 class $variant_dart_cls_name extends $dart_cls_name {
-                    $(for (i, field) in variant_obj.fields().iter().enumerate() => final $(&field.as_type().as_renderable().render_type(&field.as_type(), type_helper)) $(field_name(field.name(), i));  )
+                    $(for (i, field) in variant_obj.fields().iter().enumerate() => final $(&field.as_type().as_renderable().render_type(&field.as_type(), type_helper).to_string().expect("Could not stringify type").replace("Error", "Exception")) $(field_name(field.name(), i));  )
                     
                     // Add the public const constructor
                     $variant_dart_cls_name($constructor_param_list);
 
                     // Keep the private constructor used by `read`
-                    $variant_dart_cls_name._($(for (i, field) in variant_obj.fields().iter().enumerate() => this.$(field_name(field.name(), i)), ));
+                    $variant_dart_cls_name._($(for (i, field) in variant_obj.fields().iter().enumerate() => $(&field.as_type().as_renderable().render_type(&field.as_type(), type_helper).to_string().expect("Could not stringify type").replace("Error", "Exception")) this.$(field_name(field.name(), i)), ));
 
                     static LiftRetVal<$variant_dart_cls_name> read( Uint8List buf) {
                         int new_offset = buf.offsetInBytes;
 
                         $(for (i, field) in variant_obj.fields().iter().enumerate() =>
-                            final $(field_name(field.name(), i))_lifted = $(field.as_type().as_codetype().ffi_converter_name()).read(Uint8List.view(buf.buffer, new_offset));
+                            final $(field_name(field.name(), i))_lifted = $(field.as_type().as_codetype().ffi_converter_name().to_string().replace("Error", "Exception")).read(Uint8List.view(buf.buffer, new_offset));
                             final $(field_name(field.name(), i)) = $(field_name(field.name(), i))_lifted.value;
                             new_offset += $(field_name(field.name(), i))_lifted.bytesRead;
                         )
@@ -143,7 +144,7 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
 
                     @override
                     int allocationSize() {
-                        return $(for (i, field) in variant_obj.fields().iter().enumerate() => $(field.as_type().as_codetype().ffi_converter_name()).allocationSize($(field_name(field.name(), i))) + ) 4;
+                        return $(for (i, field) in variant_obj.fields().iter().enumerate() => $(field.as_type().as_codetype().ffi_converter_name().to_string().replace("Error", "Exception")).allocationSize($(field_name(field.name(), i))) + ) 4;
                     }
 
                     @override
@@ -152,7 +153,7 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
                         int new_offset = buf.offsetInBytes + 4;
 
                         $(for (i, field) in variant_obj.fields().iter().enumerate() =>
-                        new_offset += $(field.as_type().as_codetype().ffi_converter_name()).write($(field_name(field.name(), i)), Uint8List.view(buf.buffer, new_offset));
+                        new_offset += $(field.as_type().as_codetype().ffi_converter_name().to_string().replace("Error", "Exception")).write($(field_name(field.name(), i)), Uint8List.view(buf.buffer, new_offset));
                         )
 
                         return new_offset;
