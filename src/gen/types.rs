@@ -196,7 +196,7 @@ impl Renderer<(FunctionDefinition, dart::Tokens)> for TypeHelpersRenderer<'_> {
                     throw UniffiInternalError.panicked("Rust panic");
                 }
                 } else {
-                throw UniffiInternalError.panicked("Unexpected RustCallStatus code: ${status.ref.code}");
+                throw UniffiInternalError.panicked($[str](Unexpected RustCallStatus code: $status.ref.code));
                 }
             }
 

@@ -150,6 +150,9 @@ pub fn generate_object(obj: &Object, type_helper: &dyn TypeHelperRenderer) -> da
             }
 
             Pointer<Void> uniffiClonePointer() {
+                if (_ptr.address == 0) {
+                    throw StateError($[str](Trying to clone a null or invalid pointer address in $[const](obj.name())));
+                }
                 return rustCall((status) => $lib_instance.$ffi_object_clone_name(_ptr, status));
             }
 
