@@ -2,8 +2,8 @@ use super::oracle::{AsCodeType, DartCodeOracle};
 use super::render::{Renderable, TypeHelperRenderer};
 use super::CodeType;
 use genco::prelude::*;
-use uniffi_bindgen::backend::Type;
 use uniffi_bindgen::interface::AsType;
+use uniffi_bindgen::interface::Type;
 
 #[derive(Debug)]
 pub struct CustomCodeType {

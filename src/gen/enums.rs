@@ -1,8 +1,8 @@
 use crate::gen::CodeType;
 use genco::prelude::*;
 use heck::ToLowerCamelCase;
-use uniffi_bindgen::backend::Literal;
 use uniffi_bindgen::interface::{AsType, Enum, Field, Type};
+use uniffi_bindgen::pipeline::general::nodes::Literal;
 
 use super::oracle::{AsCodeType, DartCodeOracle};
 use super::render::{AsRenderable, Renderable, TypeHelperRenderer};

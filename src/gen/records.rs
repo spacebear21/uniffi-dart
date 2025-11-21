@@ -3,8 +3,8 @@ use super::render::{Renderable, TypeHelperRenderer};
 use super::types::generate_type;
 use crate::gen::CodeType;
 use genco::prelude::*;
-use uniffi_bindgen::backend::Literal;
 use uniffi_bindgen::interface::{AsType, Record};
+use uniffi_bindgen::pipeline::general::nodes::Literal;
 
 #[derive(Debug)]
 pub struct RecordCodeType {

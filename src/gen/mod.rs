@@ -246,7 +246,7 @@ impl BindingGenerator for DartBindingGenerator {
         Ok(())
     }
 
-    fn new_config(&self, root_toml: &toml::value::Value) -> Result<Self::Config> {
+    fn new_config(&self, root_toml: &toml::Value) -> Result<Self::Config> {
         Ok(
             match root_toml.get("bindings").and_then(|b| b.get("dart")) {
                 Some(v) => v.clone().try_into()?,

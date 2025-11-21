@@ -13,8 +13,8 @@ myfeature = []
 
 [dependencies]
 thiserror = "1.0"
-uniffi = "0.29"
+uniffi = "0.30"
 
 [build-dependencies]
 uniffi-dart = { path = "../../" }
-camino = "1" 
+camino = "1"

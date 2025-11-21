@@ -9,10 +9,10 @@ crate-type = ["lib", "cdylib"]
 bench = false
 
 [dependencies]
-uniffi = "0.29"
+uniffi = "0.30"
 clap = { version = "4", features = ["cargo", "std", "derive"] }
 criterion = "0.5.1"
 
 [build-dependencies]
 uniffi-dart = { path = "../../" }
-camino = "1" 
+camino = "1"

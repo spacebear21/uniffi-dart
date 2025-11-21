@@ -8,16 +8,15 @@ use crate::gen::render::{Renderable, TypeHelperRenderer};
 use crate::gen::CodeType;
 use genco::prelude::*;
 use paste::paste;
-use uniffi_bindgen::backend::Literal;
-use uniffi_bindgen::interface::{Radix, Type};
+use uniffi_bindgen::pipeline::general::nodes::{Literal, Radix, Type, TypeNode};
 
 pub use boolean::BooleanCodeType;
 pub use duration::DurationCodeType;
 pub use string::StringCodeType;
 
 fn render_literal(literal: &Literal) -> String {
-    fn typed_number(type_: &Type, num_str: String) -> String {
-        match type_ {
+    fn typed_number(type_node: &TypeNode, num_str: String) -> String {
+        match &type_node.ty {
             Type::Int8
             | Type::UInt8
             | Type::Int16
@@ -35,23 +34,23 @@ fn render_literal(literal: &Literal) -> String {
     match literal {
         Literal::Boolean(v) => format!("{v}"),
         Literal::String(s) => format!("'{s}'"),
-        Literal::Int(i, radix, type_) => typed_number(
-            type_,
+        Literal::Int(i, radix, type_node) => typed_number(
+            type_node,
             match radix {
                 Radix::Octal => format!("{i:#x}"),
                 Radix::Decimal => format!("{i}"),
                 Radix::Hexadecimal => format!("{i:#x}"),
             },
         ),
-        Literal::UInt(i, radix, type_) => typed_number(
-            type_,
+        Literal::UInt(i, radix, type_node) => typed_number(
+            type_node,
             match radix {
                 Radix::Octal => format!("{i:#x}"),
                 Radix::Decimal => format!("{i}"),
                 Radix::Hexadecimal => format!("{i:#x}"),
             },
         ),
-        Literal::Float(string, type_) => typed_number(type_, string.clone()),
+        Literal::Float(string, type_node) => typed_number(type_node, string.clone()),
         _ => unreachable!("Literal"),
     }
 }

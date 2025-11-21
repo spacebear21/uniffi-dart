@@ -8,8 +8,8 @@ use crate::gen::callback_interface::{
 use crate::gen::CodeType;
 use heck::ToLowerCamelCase;
 use std::string::ToString;
-use uniffi_bindgen::backend::Literal;
 use uniffi_bindgen::interface::{AsType, Method, Object, ObjectImpl, UniffiTrait};
+use uniffi_bindgen::pipeline::general::nodes::Literal;
 
 use crate::gen::oracle::{AsCodeType, DartCodeOracle};
 use crate::gen::render::AsRenderable;
@@ -190,8 +190,13 @@ pub fn generate_object(obj: &Object, type_helper: &dyn TypeHelperRenderer) -> da
     }
 
     for trait_impl in obj.trait_impls() {
-        let trait_iface =
-            DartCodeOracle::trait_interface_name(type_helper.get_ci(), &trait_impl.trait_name);
+        // Extract the trait name from the trait_ty Type
+        let trait_name = match &trait_impl.trait_ty {
+            uniffi_bindgen::interface::Type::Object { name, .. } => name,
+            uniffi_bindgen::interface::Type::CallbackInterface { name, .. } => name,
+            _ => continue, // Skip if it's not an Object or CallbackInterface
+        };
+        let trait_iface = DartCodeOracle::trait_interface_name(type_helper.get_ci(), trait_name);
         if !implements.contains(&trait_iface) {
             implements.push(trait_iface);
         }
@@ -419,6 +424,10 @@ fn generate_trait_helpers(obj: &Object, type_helper: &dyn TypeHelperRenderer) ->
                     }
                 });
                 generated_hash = true;
+            }
+            UniffiTrait::Ord { .. } => {
+                // Ord trait is not currently supported in Dart bindings
+                // Skip generation for now
             }
         }
     }

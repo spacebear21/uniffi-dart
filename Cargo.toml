@@ -32,14 +32,12 @@ required-features = ["binary"]
 anyhow = "1"
 paste = "1"
 heck = "0.5"
-uniffi = { workspace = true, features = [
-    "build", "tokio"
-] }
+uniffi = { workspace = true, features = ["build", "tokio"] }
 uniffi_dart_macro = { path = "./uniffi_dart_macro" }
 uniffi_bindgen = { workspace = true }
 camino = "1"
 serde = "1"
-toml = "0.5.1"
+toml = "0.9"
 genco = "0.17.5"
 proc-macro2 = "1.0.66"
 
@@ -60,10 +58,10 @@ stringcase = "0.4.0"
 members = [
     ".",
     "uniffi_dart_macro",
-    
+
     # Working fixtures - only include fixtures that actually work
     "fixtures/arithmetic",
-    "fixtures/bytes_types", 
+    "fixtures/bytes_types",
     "fixtures/duration_type_test",
     "fixtures/type-limits",
     "fixtures/hello_world",
@@ -77,8 +75,8 @@ members = [
 ]
 
 [workspace.dependencies]
-uniffi = { version = "0.29.0" }
-uniffi_bindgen = { version = "0.29.0" }
-uniffi_build = { version = "0.29.0" }
-uniffi_testing = { version = "0.29.0" }
+uniffi = { version = "0.30.0" }
+uniffi_bindgen = { version = "0.30.0" }
+uniffi_build = { version = "0.30.0" }
+uniffi_testing = { version = "0.30.0" }
 camino = { version = "1.1" }

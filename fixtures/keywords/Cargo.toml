@@ -8,8 +8,8 @@ name = "keywords"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-uniffi = "0.29"
+uniffi = "0.30"
 
 [build-dependencies]
 uniffi-dart = { path = "../../", features = ["build"] }
-camino = { workspace = true } 
+camino = { workspace = true }
