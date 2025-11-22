@@ -326,7 +326,7 @@ pub fn generate_method(func: &Method, type_helper: &dyn TypeHelperRenderer) -> d
                 uniffi_bindgen::interface::Type::Object { .. } => {
                     quote!((ptr) => $lifter(Pointer<Void>.fromAddress(ptr)))
                 }
-                _ => lifter.clone()
+                _ => lifter.clone(),
             }
         } else {
             lifter.clone()
