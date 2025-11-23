@@ -328,11 +328,13 @@ pub fn generate_dart_bindings(
     library_mode: bool,
 ) -> anyhow::Result<()> {
     if library_mode {
+        // Use config_file_override if provided, otherwise use udl_file
+        let config_path = config_file_override.unwrap_or(udl_file).to_string();
         uniffi_bindgen::library_mode::generate_bindings(
             library_file,
             None,
             &DartBindingGenerator {},
-            &LocalConfigSupplier(udl_file.to_string()),
+            &LocalConfigSupplier(config_path),
             None,
             out_dir_override.unwrap(),
             true,
