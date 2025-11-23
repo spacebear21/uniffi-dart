@@ -33,12 +33,27 @@ mod types;
 
 pub use code_type::CodeType;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LibraryLoadingStrategy {
+    DirectoryPath,
+    NativeAssets,
+}
+
+impl Default for LibraryLoadingStrategy {
+    fn default() -> Self {
+        LibraryLoadingStrategy::DirectoryPath
+    }
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Config {
     package_name: Option<String>,
     cdylib_name: Option<String>,
     #[serde(default)]
     external_packages: HashMap<String, String>,
+    #[serde(default)]
+    library_loading_strategy: LibraryLoadingStrategy,
 }
 
 impl From<&ComponentInterface> for Config {
@@ -47,6 +62,7 @@ impl From<&ComponentInterface> for Config {
             package_name: Some(ci.namespace().to_owned()),
             cdylib_name: Some(ci.namespace().to_owned()),
             external_packages: HashMap::new(),
+            library_loading_strategy: LibraryLoadingStrategy::default(),
         }
     }
 }
@@ -66,6 +82,10 @@ impl Config {
         } else {
             "uniffi".into()
         }
+    }
+
+    pub fn library_loading_strategy(&self) -> &LibraryLoadingStrategy {
+        &self.library_loading_strategy
     }
 }
 
@@ -88,6 +108,7 @@ impl<'a> DartWrapper<'a> {
     fn generate(&self) -> dart::Tokens {
         let package_name = self.config.package_name();
         let libname = self.config.cdylib_name();
+        let loading_strategy = self.config.library_loading_strategy();
 
         let (type_helper_code, functions_definitions) = &self.type_renderer.render();
 
@@ -148,6 +169,29 @@ impl<'a> DartWrapper<'a> {
             definitions
         }
 
+        let open_method = match loading_strategy {
+            LibraryLoadingStrategy::DirectoryPath => quote! {
+                static DynamicLibrary _open() {
+                  if (Platform.isAndroid) return DynamicLibrary.open($(format!("\"${{Directory.current.path}}/lib{libname}.so\"")));
+                  if (Platform.isIOS) return DynamicLibrary.executable();
+                  if (Platform.isLinux) return DynamicLibrary.open($(format!("\"${{Directory.current.path}}/lib{libname}.so\"")));
+                  if (Platform.isMacOS) return DynamicLibrary.open($(format!("\"lib{libname}.dylib\"")));
+                  if (Platform.isWindows) return DynamicLibrary.open($(format!("\"{libname}.dll\"")));
+                  throw UnsupportedError("Unsupported platform: ${Platform.operatingSystem}");
+                }
+            },
+            LibraryLoadingStrategy::NativeAssets => quote! {
+                static DynamicLibrary _open() {
+                  if (Platform.isAndroid) return DynamicLibrary.process();
+                  if (Platform.isIOS) return DynamicLibrary.process();
+                  if (Platform.isLinux) return DynamicLibrary.process();
+                  if (Platform.isMacOS) return DynamicLibrary.process();
+                  if (Platform.isWindows) return DynamicLibrary.process();
+                  throw UnsupportedError("Unsupported platform: ${Platform.operatingSystem}");
+                }
+            },
+        };
+
         quote! {
             library $package_name;
 
@@ -160,14 +204,7 @@ impl<'a> DartWrapper<'a> {
 
                 static final DynamicLibrary _dylib = _open();
 
-                static DynamicLibrary _open() {
-                  if (Platform.isAndroid) return DynamicLibrary.open($(format!("\"lib{libname}.so\"")));
-                  if (Platform.isIOS) return DynamicLibrary.executable();
-                  if (Platform.isLinux) return DynamicLibrary.open($(format!("\"lib{libname}.so\"")));
-                  if (Platform.isMacOS) return DynamicLibrary.open($(format!("\"lib{libname}.dylib\"")));
-                  if (Platform.isWindows) return DynamicLibrary.open($(format!("\"{libname}.dll\"")));
-                  throw UnsupportedError("Unsupported platform: ${Platform.operatingSystem}");
-                }
+                $open_method
 
                 static final _UniffiLib instance = _UniffiLib._();
 
