@@ -515,7 +515,19 @@ fn generate_trait_object(obj: &Object, type_helper: &dyn TypeHelperRenderer) -> 
 
     quote! {
         abstract class $cls_name {
-            factory $cls_name.lift(Pointer<Void> ptr) => $(&impl_name)._internal(ptr);
+            factory $cls_name.lift(Pointer<Void> ptr) {
+                // UniFFI 0.30.0: Check if handle is from foreign side (lowest bit set)
+                final handle = ptr.address;
+                final isForeign = (handle & 0x1) != 0;
+
+                if (isForeign) {
+                    // Foreign (Dart-side) trait implementations not yet supported
+                    throw UnsupportedError("Foreign trait implementations are not yet supported in uniffi-dart");
+                }
+
+                // Rust-generated handle (lowest bit is 0)
+                return $(&impl_name)._internal(ptr);
+            }
 
             static Pointer<Void> lower($cls_name value) {
                 if (value is $(&impl_name)) {
