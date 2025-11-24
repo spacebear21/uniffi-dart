@@ -91,9 +91,6 @@ impl DartCodeOracle {
     //     }
     // }
 
-    pub fn find_lib_instance() -> dart::Tokens {
-        quote!(_UniffiLib.instance)
-    }
 
     pub fn infer_ffi_module<F>(ci: &ComponentInterface, fallback: F) -> String
     where
@@ -259,20 +256,22 @@ impl DartCodeOracle {
         }
     }
 
+    /// With @Native, async functions are called directly by name
     pub fn async_poll(callable: impl Callable, ci: &ComponentInterface) -> dart::Tokens {
         let ffi_func = callable.ffi_rust_future_poll(ci);
-        quote!($(Self::find_lib_instance()).$ffi_func)
+        quote!($ffi_func)
     }
 
+    /// With @Native, async functions are called directly by name
     pub fn async_complete(callable: impl Callable, ci: &ComponentInterface) -> dart::Tokens {
         let ffi_func = callable.ffi_rust_future_complete(ci);
-        let call = quote!($(Self::find_lib_instance()).$ffi_func);
-        call
+        quote!($ffi_func)
     }
 
+    /// With @Native, async functions are called directly by name
     pub fn async_free(callable: impl Callable, ci: &ComponentInterface) -> dart::Tokens {
         let ffi_func = callable.ffi_rust_future_free(ci);
-        quote!($(Self::find_lib_instance()).$ffi_func)
+        quote!($ffi_func)
     }
 
     /// Get the idiomatic Dart rendering of a class name based on `Type`.

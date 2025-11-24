@@ -35,7 +35,7 @@ pub fn generate_function(func: &Function, type_helper: &dyn TypeHelperRenderer) 
         quote!(
             Future<$ret> $(DartCodeOracle::fn_name(func.name()))($args) {
                 return uniffiRustCallAsync(
-                  () => $(DartCodeOracle::find_lib_instance()).$(func.ffi_func().name())(
+                  () => $(func.ffi_func().name())(
                     $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),)
                   ),
                   $(DartCodeOracle::async_poll(func, type_helper.get_ci())),
@@ -50,7 +50,7 @@ pub fn generate_function(func: &Function, type_helper: &dyn TypeHelperRenderer) 
         quote!(
             $ret $(DartCodeOracle::fn_name(func.name()))($args) {
                 return rustCall((status) {
-                    $(DartCodeOracle::find_lib_instance()).$(func.ffi_func().name())(
+                    $(func.ffi_func().name())(
                         $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),) status
                     );
                 }, $error_handler);
@@ -59,7 +59,7 @@ pub fn generate_function(func: &Function, type_helper: &dyn TypeHelperRenderer) 
     } else {
         quote!(
             $ret $(DartCodeOracle::fn_name(func.name()))($args) {
-                return rustCall((status) => $lifter($(DartCodeOracle::find_lib_instance()).$(func.ffi_func().name())(
+                return rustCall((status) => $lifter($(func.ffi_func().name())(
                     $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),) status
                 )), $error_handler);
             }

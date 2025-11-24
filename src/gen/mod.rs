@@ -33,27 +33,13 @@ mod types;
 
 pub use code_type::CodeType;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum LibraryLoadingStrategy {
-    DirectoryPath,
-    NativeAssets,
-}
-
-impl Default for LibraryLoadingStrategy {
-    fn default() -> Self {
-        LibraryLoadingStrategy::DirectoryPath
-    }
-}
-
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Config {
     package_name: Option<String>,
     cdylib_name: Option<String>,
     #[serde(default)]
     external_packages: HashMap<String, String>,
-    #[serde(default)]
-    library_loading_strategy: LibraryLoadingStrategy,
+    asset_id: Option<String>,
 }
 
 impl From<&ComponentInterface> for Config {
@@ -62,7 +48,7 @@ impl From<&ComponentInterface> for Config {
             package_name: Some(ci.namespace().to_owned()),
             cdylib_name: Some(ci.namespace().to_owned()),
             external_packages: HashMap::new(),
-            library_loading_strategy: LibraryLoadingStrategy::default(),
+            asset_id: None,
         }
     }
 }
@@ -84,8 +70,15 @@ impl Config {
         }
     }
 
-    pub fn library_loading_strategy(&self) -> &LibraryLoadingStrategy {
-        &self.library_loading_strategy
+    pub fn asset_id(&self) -> String {
+        if let Some(asset_id) = &self.asset_id {
+            asset_id.clone()
+        } else {
+            // Default: uniffi:{cdylib_name}
+            // Dart's Native Assets system automatically prefixes this with package:{dart_package_name}/
+            // so the full ID becomes package:{dart_package_name}/uniffi:{cdylib_name}
+            format!("uniffi:{}", self.cdylib_name())
+        }
     }
 }
 
@@ -106,13 +99,12 @@ impl<'a> DartWrapper<'a> {
     }
 
     fn generate(&self) -> dart::Tokens {
-        let package_name = self.config.package_name();
-        let libname = self.config.cdylib_name();
-        let loading_strategy = self.config.library_loading_strategy();
+        let package_name = &self.config.package_name();
 
         let (type_helper_code, functions_definitions) = &self.type_renderer.render();
 
-        fn uniffi_function_definitions(ci: &ComponentInterface) -> dart::Tokens {
+        // Generate @Native external function definitions
+        fn uniffi_function_definitions(ci: &ComponentInterface, asset_id: &str) -> dart::Tokens {
             let mut definitions = quote!();
             let mut defined_functions = HashSet::new(); // Track defined function names
 
@@ -125,115 +117,98 @@ impl<'a> DartWrapper<'a> {
                     continue;
                 }
 
-                let (native_return_type, dart_return_type) = match fun.return_type() {
-                    Some(return_type) => (
-                        quote! { $(DartCodeOracle::ffi_native_type_label(Some(return_type), ci)) },
-                        quote! { $(DartCodeOracle::ffi_dart_type_label(Some(return_type), ci)) },
-                    ),
-                    None => (quote! { Void }, quote! { void }),
+                // For @Native, we need both native types (for the annotation) and Dart types (for the external declaration)
+                let native_return_type = match fun.return_type() {
+                    Some(return_type) => {
+                        quote! { $(DartCodeOracle::ffi_native_type_label(Some(return_type), ci)) }
+                    }
+                    None => quote! { Void },
+                };
+
+                let dart_return_type = match fun.return_type() {
+                    Some(return_type) => {
+                        quote! { $(DartCodeOracle::ffi_dart_type_label(Some(return_type), ci)) }
+                    }
+                    None => quote! { void },
                 };
 
                 let (native_args, dart_args) = {
-                    let mut native_args = quote!();
-                    let mut dart_args = quote!();
+                    let mut native_arg_vec = vec![];
+                    let mut dart_arg_with_names_vec = vec![];
 
                     for arg in fun.arguments() {
-                        native_args.append(
-                            quote!($(DartCodeOracle::ffi_native_type_label(Some(&arg.type_()), ci)),),
-                        );
-                        dart_args.append(
-                            quote!($(DartCodeOracle::ffi_dart_type_label(Some(&arg.type_()), ci)),),
-                        );
+                        let arg_name = arg.name();
+                        let native_type = DartCodeOracle::ffi_native_type_label(Some(&arg.type_()), ci);
+                        let dart_type = DartCodeOracle::ffi_dart_type_label(Some(&arg.type_()), ci);
+
+                        native_arg_vec.push(native_type);
+                        dart_arg_with_names_vec.push(quote!($dart_type $arg_name));
                     }
 
                     if fun.has_rust_call_status_arg() {
-                        native_args.append(quote!(Pointer<RustCallStatus>));
-                        dart_args.append(quote!(Pointer<RustCallStatus>));
+                        native_arg_vec.push(quote!(Pointer<RustCallStatus>));
+                        dart_arg_with_names_vec.push(quote!(Pointer<RustCallStatus> uniffiStatus));
                     }
 
+                    let native_args = quote!($(for (i, arg) in native_arg_vec.iter().enumerate() => $(if i > 0 => , )$[' ']$arg));
+                    let dart_args = quote!($(for (i, arg) in dart_arg_with_names_vec.iter().enumerate() => $(if i > 0 => , )$[' ']$arg));
                     (native_args, dart_args)
                 };
 
-                let lookup_fn = quote! {
-                    _dylib.lookupFunction<
-                        $native_return_type Function($(&native_args)),
-                        $(&dart_return_type) Function($(&dart_args))
-                    >($(format!("\"{fun_name}\"")))
-                };
-
+                // Generate @Native annotation with assetId
+                // @Native uses the function name as symbol automatically
+                // assetId references the _uniffiAssetId constant
                 definitions.append(quote! {
-                    late final $dart_return_type Function($dart_args) $fun_name = $lookup_fn;
+                    @Native<$(&native_return_type) Function($(&native_args))>(
+                      assetId: $asset_id
+                    )
+                    external $(&dart_return_type) $fun_name($(&dart_args));
+                    $['\n']
                 });
             }
 
             definitions
         }
 
-        let open_method = match loading_strategy {
-            LibraryLoadingStrategy::DirectoryPath => quote! {
-                static DynamicLibrary _open() {
-                  if (Platform.isAndroid) return DynamicLibrary.open($(format!("\"${{Directory.current.path}}/lib{libname}.so\"")));
-                  if (Platform.isIOS) return DynamicLibrary.executable();
-                  if (Platform.isLinux) return DynamicLibrary.open($(format!("\"${{Directory.current.path}}/lib{libname}.so\"")));
-                  if (Platform.isMacOS) return DynamicLibrary.open($(format!("\"lib{libname}.dylib\"")));
-                  if (Platform.isWindows) return DynamicLibrary.open($(format!("\"{libname}.dll\"")));
-                  throw UnsupportedError("Unsupported platform: ${Platform.operatingSystem}");
-                }
-            },
-            LibraryLoadingStrategy::NativeAssets => quote! {
-                static DynamicLibrary _open() {
-                  if (Platform.isAndroid) return DynamicLibrary.process();
-                  if (Platform.isIOS) return DynamicLibrary.process();
-                  if (Platform.isLinux) return DynamicLibrary.process();
-                  if (Platform.isMacOS) return DynamicLibrary.process();
-                  if (Platform.isWindows) return DynamicLibrary.process();
-                  throw UnsupportedError("Unsupported platform: ${Platform.operatingSystem}");
-                }
-            },
-        };
+        let asset_id_suffix = &self.config.asset_id();  // e.g., "uniffi:hello_world"
 
         quote! {
             library $package_name;
 
             $(type_helper_code) // Imports, Types and Type Helper
 
+            // Generated by uniffi-dart – do NOT edit.
+            // This asset ID is used by @Native annotations to locate the native library
+            // via Native Assets. Dart automatically prefixes asset names with "package:{packageName}/",
+            // so we construct the full ID here to match what the build hook registers.
+            // The asset ID format is: package:{dart_package_name}/uniffi:{cdylib_name}
+            const _uniffiAssetId = $(quoted(format!("package:{}/{}", package_name, asset_id_suffix)));
+
             $(functions_definitions)
 
-            class _UniffiLib {
-                _UniffiLib._();
+            // FFI function definitions using @Native
+            $(uniffi_function_definitions(self.ci, "_uniffiAssetId"))
 
-                static final DynamicLibrary _dylib = _open();
-
-                $open_method
-
-                static final _UniffiLib instance = _UniffiLib._();
-
-                $(uniffi_function_definitions(self.ci))
-
-                static void _checkApiVersion() {
-                    final bindingsVersion = $(self.ci.uniffi_contract_version());
-                    final scaffoldingVersion = _UniffiLib.instance.$(self.ci.ffi_uniffi_contract_version().name())();
-                    if (bindingsVersion != scaffoldingVersion) {
-                      throw UniffiInternalError.panicked("UniFFI contract version mismatch: bindings version $bindingsVersion, scaffolding version $scaffoldingVersion");
-                    }
-                }
-
-                static void _checkApiChecksums() {
-                    $(for (name, expected_checksum) in self.ci.iter_checksums() =>
-                        if (_UniffiLib.instance.$(name)() != $expected_checksum) {
-                          throw UniffiInternalError.panicked("UniFFI API checksum mismatch");
-                        }
-                    )
+            // API version and checksum validation
+            void _checkApiVersion() {
+                final bindingsVersion = $(self.ci.uniffi_contract_version());
+                final scaffoldingVersion = $(self.ci.ffi_uniffi_contract_version().name())();
+                if (bindingsVersion != scaffoldingVersion) {
+                  throw UniffiInternalError.panicked("UniFFI contract version mismatch: bindings version $bindingsVersion, scaffolding version $scaffoldingVersion");
                 }
             }
 
-            void initialize() {
-                _UniffiLib._open();
+            void _checkApiChecksums() {
+                $(for (name, expected_checksum) in self.ci.iter_checksums() =>
+                    if ($(name)() != $expected_checksum) {
+                      throw UniffiInternalError.panicked("UniFFI API checksum mismatch");
+                    }
+                )
             }
 
             void ensureInitialized() {
-                _UniffiLib._checkApiVersion();
-                _UniffiLib._checkApiChecksums();
+                _checkApiVersion();
+                _checkApiChecksums();
             }
         }
     }
@@ -320,6 +295,27 @@ impl BindgenCrateConfigSupplier for LocalConfigSupplier {
     }
 }
 
+pub struct ConfigFileSupplier(String);
+impl BindgenCrateConfigSupplier for ConfigFileSupplier {
+    fn get_udl(&self, _crate_name: &str, _udl_name: &str) -> Result<String> {
+        // We don't have UDL in library mode, return empty
+        Ok(String::new())
+    }
+
+    fn get_toml(&self, _crate_name: &str) -> Result<Option<toml::value::Table>> {
+        let file = std::fs::File::open(self.0.clone())?;
+        let mut reader = std::io::BufReader::new(file);
+        let mut content = String::new();
+        reader.read_to_string(&mut content)?;
+        let toml_value: toml::Value = toml::from_str(&content)?;
+        if let toml::Value::Table(table) = toml_value {
+            Ok(Some(table))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 pub fn generate_dart_bindings(
     udl_file: &Utf8Path,
     config_file_override: Option<&Utf8Path>,
@@ -328,19 +324,28 @@ pub fn generate_dart_bindings(
     library_mode: bool,
 ) -> anyhow::Result<()> {
     if library_mode {
-        // Use config_file_override if provided, otherwise use udl_file
-        let config_path = config_file_override.unwrap_or(udl_file).to_string();
+        // In library mode, we need to read and parse the config file ourselves
+        // because library_mode::generate_bindings gets config from library metadata
+        let config_supplier: Box<dyn BindgenCrateConfigSupplier> =
+            if let Some(config_path) = config_file_override {
+                Box::new(ConfigFileSupplier(config_path.to_string()))
+            } else {
+                Box::new(LocalConfigSupplier(udl_file.to_string()))
+            };
+
         uniffi_bindgen::library_mode::generate_bindings(
             library_file,
-            None,
+            None, // crate name filter
             &DartBindingGenerator {},
-            &LocalConfigSupplier(config_path),
+            config_supplier.as_ref(),
             None,
             out_dir_override.unwrap(),
             true,
         )?;
         Ok(())
     } else {
+        // Note: library_file is needed by uniffi_bindgen to extract metadata from proc macros,
+        // even though we don't use it for DynamicLibrary.open() anymore (Native Assets handle that)
         uniffi_bindgen::generate_external_bindings(
             &DartBindingGenerator {},
             udl_file,

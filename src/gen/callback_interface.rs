@@ -330,7 +330,7 @@ pub fn generate_callback_interface_vtable_init_function(
             $(&vtable_static_instance_name).ref.uniffiFree = $(format!("{}FreePointer", DartCodeOracle::fn_name(callback_name)));
 
             rustCall((status) {
-                _UniffiLib.instance.uniffi_$(ffi_module)_fn_init_callback_vtable_$(snake_callback)(
+                uniffi_$(ffi_module)_fn_init_callback_vtable_$(snake_callback)(
                     $(vtable_static_instance_name),
                 );
                 checkCallStatus(NullRustCallStatusErrorHandler(), status);
