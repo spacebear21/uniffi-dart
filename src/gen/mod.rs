@@ -258,7 +258,7 @@ impl BindingGenerator for DartBindingGenerator {
         Ok(())
     }
 
-    fn new_config(&self, root_toml: &toml::Value) -> Result<Self::Config> {
+    fn new_config(&self, root_toml: &toml::value::Value) -> Result<Self::Config> {
         Ok(
             match root_toml.get("bindings").and_then(|b| b.get("dart")) {
                 Some(v) => v.clone().try_into()?,
@@ -307,8 +307,8 @@ impl BindgenCrateConfigSupplier for ConfigFileSupplier {
         let mut reader = std::io::BufReader::new(file);
         let mut content = String::new();
         reader.read_to_string(&mut content)?;
-        let toml_value: toml::Value = toml::from_str(&content)?;
-        if let toml::Value::Table(table) = toml_value {
+        let toml_value: toml::value::Value = toml::from_str(&content)?;
+        if let toml::value::Value::Table(table) = toml_value {
             Ok(Some(table))
         } else {
             Ok(None)
