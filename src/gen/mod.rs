@@ -9,6 +9,7 @@ use camino::Utf8Path;
 use genco::fmt;
 use genco::prelude::*;
 use serde::{Deserialize, Serialize};
+use toml;
 use uniffi_bindgen::BindgenCrateConfigSupplier;
 use uniffi_bindgen::Component;
 // use uniffi_bindgen::MergeWith;
