@@ -80,8 +80,17 @@ macro_rules! impl_renderable_for_compound {
                     let _inner_type_signature =
                         if inner_data_type.contains("Float") { "double" } else { "int" };
 
-                    let inner_helper = if matches!(self.inner(), Type::Sequence { .. }) && !inner_already_registered {
-                        self.inner().as_renderable().render_type_helper(type_helper)
+                    // Render inner helper for Sequences and primitives that haven't been rendered yet
+                    let inner_helper = if !inner_already_registered {
+                        match self.inner() {
+                            Type::Sequence { .. }
+                            | Type::Int8 | Type::Int16 | Type::Int32 | Type::Int64
+                            | Type::UInt8 | Type::UInt16 | Type::UInt32 | Type::UInt64
+                            | Type::Float32 | Type::Float64 => {
+                                self.inner().as_renderable().render_type_helper(type_helper)
+                            }
+                            _ => quote!()
+                        }
                     } else {
                         quote!()
                     };
