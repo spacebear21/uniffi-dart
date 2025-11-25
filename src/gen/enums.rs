@@ -61,8 +61,33 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
     let dart_cls_name = &DartCodeOracle::class_name(obj.name());
     let ffi_converter_name = &obj.as_codetype().ffi_converter_name();
     if obj.is_flat() {
+        let is_error_enum = type_helper.get_ci().is_name_used_as_error(obj.name());
+        let implements_exception = if is_error_enum {
+            quote!( implements Exception)
+        } else {
+            quote!()
+        };
+
+        // For flat error enums, generate an error handler
+        let error_handler_class = if is_error_enum {
+            let error_handler_name = format!("{dart_cls_name}ErrorHandler");
+            let instance_name = dart_cls_name.to_lower_camel_case();
+            quote! {
+                class $(&error_handler_name) extends UniffiRustCallStatusErrorHandler {
+                    @override
+                    Exception lift(RustBuffer errorBuf) {
+                        return $ffi_converter_name.lift(errorBuf);
+                    }
+                }
+
+                final $(&error_handler_name) $(instance_name)ErrorHandler = $(&error_handler_name)();
+            }
+        } else {
+            quote!()
+        };
+
         quote! {
-            enum $dart_cls_name {
+            enum $dart_cls_name $implements_exception {
                 $(for variant in obj.variants() =>
                 $(DartCodeOracle::enum_variant_name(variant.name())),)
                 ;
@@ -103,6 +128,8 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
                     return 4;
                 }
             }
+
+            $error_handler_class
         }
     } else {
         let mut variants = vec![];
