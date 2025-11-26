@@ -422,12 +422,15 @@ impl Renderer<(FunctionDefinition, dart::Tokens)> for TypeHelpersRenderer<'_> {
                 }
             }
 
+            // As of uniffi 0.30, foreign handles must always have the lowest bit set
+            // This is achieved here with an odd number sequence.
             class UniffiHandleMap<T> {
                 final Map<int, T> _map = {};
-                int _counter = 0;
+                int _counter = 1;
 
                 int insert(T obj) {
-                final handle = _counter++;
+                final handle = _counter;
+                _counter += 2;
                 _map[handle] = obj;
                 return handle;
                 }
