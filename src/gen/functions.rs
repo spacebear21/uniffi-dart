@@ -59,9 +59,13 @@ pub fn generate_function(func: &Function, type_helper: &dyn TypeHelperRenderer) 
     } else {
         quote!(
             $ret $(DartCodeOracle::fn_name(func.name()))($args) {
-                return rustCall((status) => $lifter($(func.ffi_func().name())(
-                    $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),) status
-                )), $error_handler);
+                return rustCallWithLifter(
+                    (status) => $(func.ffi_func().name())(
+                        $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),) status
+                    ),
+                    $lifter,
+                    $error_handler
+                );
             }
         )
     }

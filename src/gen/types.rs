@@ -222,6 +222,18 @@ impl Renderer<(FunctionDefinition, dart::Tokens)> for TypeHelpersRenderer<'_> {
                 }
             }
 
+            // New version that separates FFI call from lifting to avoid deserializing garbage on error
+            T rustCallWithLifter<T, F>(F Function(Pointer<RustCallStatus>) ffiCall, T Function(F) lifter, [UniffiRustCallStatusErrorHandler? errorHandler]) {
+                final status = calloc<RustCallStatus>();
+                try {
+                    final rawResult = ffiCall(status);
+                    checkCallStatus(errorHandler ?? NullRustCallStatusErrorHandler(), status);
+                    return lifter(rawResult);
+                } finally {
+                    calloc.free(status);
+                }
+            }
+
             class NullRustCallStatusErrorHandler extends UniffiRustCallStatusErrorHandler {
                 @override
                 Exception lift(RustBuffer errorBuf) {

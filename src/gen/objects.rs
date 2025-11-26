@@ -361,10 +361,14 @@ pub fn generate_method(func: &Method, type_helper: &dyn TypeHelperRenderer) -> d
     } else {
         quote!(
             $ret $(DartCodeOracle::fn_name(func.name()))($args) {
-                return rustCall((status) => $lifter($(func.ffi_func().name())(
-                    uniffiClonePointer(),
-                    $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),) status
-                )), $error_handler);
+                return rustCallWithLifter(
+                    (status) => $(func.ffi_func().name())(
+                        uniffiClonePointer(),
+                        $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),) status
+                    ),
+                    $lifter,
+                    $error_handler
+                );
             }
         )
     }
@@ -474,11 +478,15 @@ fn trait_method_call(
         type_helper.include_once_check(&ret.as_codetype().canonical_name(), ret);
         let lifter = quote!($(ret.as_codetype().lift()));
         quote!(
-            rustCall((status) => $lifter($ffi_name(
-                uniffiClonePointer(),
-                $(for arg in lowered_args => $arg,)
-                status
-            )), $error_handler)
+            rustCallWithLifter(
+                (status) => $ffi_name(
+                    uniffiClonePointer(),
+                    $(for arg in lowered_args => $arg,)
+                    status
+                ),
+                $lifter,
+                $error_handler
+            )
         )
     } else {
         quote!(
