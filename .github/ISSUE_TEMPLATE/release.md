@@ -26,8 +26,11 @@ preserve the current line and bump `main` to the new target:
       ```
 - [ ] Open a PR against `main` that bumps the workspace uniffi
       dependencies in the root `Cargo.toml`, the uniffi dependency in
-      each fixture `Cargo.toml`, and the `README.md` versioning table.
-      Merge when green.
+      each fixture `Cargo.toml`, the `README.md` install snippet to
+      `vX.Y.Z+vA.B.C`, and the `README.md` versioning table (add a
+      new row pointing at `vX.Y.Z+vA.B.C`). The README values point
+      at the upcoming release; the actual tag lands later in this
+      checklist. Merge when green.
 - [ ] Create the new line's release branch from the bumped `main`:
       ```
       git switch main && git pull
@@ -38,8 +41,10 @@ preserve the current line and bump `main` to the new target:
 ### Pick the release line
 
 - [ ] uniffi-rs line being released: `vA.B.x`
-- [ ] Target branch: `release/uniffi-vA.B.x`
-- [ ] `git switch release/uniffi-vA.B.x && git pull`
+- [ ] Target branch: `release/uniffi-vA.B.x`. If `main` is still on
+      `vA.B.x`, target `main` instead and fast-forward
+      `release/uniffi-vA.B.x` to it after merge (see Tag & release).
+- [ ] `git switch <target-branch> && git pull`
 - [ ] Latest tag on this line:
       `git describe --tags --match 'v*+vA.B.*' --abbrev=0`
 - [ ] If this release incorporates a uniffi-rs patch bump (e.g.
@@ -68,13 +73,19 @@ preserve the current line and bump `main` to the new target:
 
 ### Review & merge
 
-- [ ] Open a PR with the above changes against
-      `release/uniffi-vA.B.x`
+- [ ] Open a PR with the above changes against the target branch
 - [ ] CI green
 - [ ] Merge
 
 ### Tag & release
 
+- [ ] If you targeted `main`, fast-forward `release/uniffi-vA.B.x`
+      to it and push:
+      ```
+      git switch release/uniffi-vA.B.x && git pull
+      git merge --ff-only main
+      git push origin release/uniffi-vA.B.x
+      ```
 - [ ] Create a git tag on the merge commit: `vX.Y.Z+vA.B.C`
 - [ ] Push the tag
 - [ ] Create a GitHub Release from the tag with the changelog entry
