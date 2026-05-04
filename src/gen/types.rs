@@ -1,5 +1,5 @@
-use std::collections::{BTreeSet, HashSet};
-use std::{cell::RefCell, collections::HashMap};
+use std::cell::RefCell;
+use std::collections::{BTreeMap, BTreeSet};
 
 use genco::prelude::*;
 use uniffi_bindgen::interface::AsType;
@@ -13,21 +13,21 @@ type FunctionDefinition = dart::Tokens;
 
 pub struct TypeHelpersRenderer<'a> {
     ci: &'a ComponentInterface,
-    include_once_names: RefCell<HashMap<String, Type>>,
+    include_once_names: RefCell<BTreeMap<String, Type>>,
     // Tracks ad-hoc "include once" names that don't map to a concrete `Type`
-    include_once_custom: RefCell<HashSet<String>>,
+    include_once_custom: RefCell<BTreeSet<String>>,
 }
 
 impl<'a> TypeHelpersRenderer<'a> {
     pub fn new(ci: &'a ComponentInterface) -> Self {
         Self {
             ci,
-            include_once_names: RefCell::new(HashMap::new()),
-            include_once_custom: RefCell::new(HashSet::new()),
+            include_once_names: RefCell::new(BTreeMap::new()),
+            include_once_custom: RefCell::new(BTreeSet::new()),
         }
     }
 
-    pub fn get_include_names(&self) -> HashMap<String, Type> {
+    pub fn get_include_names(&self) -> BTreeMap<String, Type> {
         self.include_once_names.clone().into_inner()
     }
 }
@@ -526,6 +526,24 @@ impl Renderer<(FunctionDefinition, dart::Tokens)> for TypeHelpersRenderer<'_> {
         };
 
         (types_helper_code, function_definitions)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn include_names_iterate_in_name_order() {
+        let ci = ComponentInterface::new("determinism");
+        let renderer = TypeHelpersRenderer::new(&ci);
+
+        renderer.include_once_check("z", &Type::String);
+        renderer.include_once_check("a", &Type::UInt8);
+        renderer.include_once_check("m", &Type::Boolean);
+
+        let names: Vec<_> = renderer.get_include_names().keys().cloned().collect();
+        assert_eq!(names, ["a", "m", "z"]);
     }
 }
 
