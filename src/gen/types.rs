@@ -511,11 +511,13 @@ impl Renderer<(FunctionDefinition, dart::Tokens)> for TypeHelpersRenderer<'_> {
                 return obj;
                 }
 
-                void remove(int handle) {
-                if (maybeRemove(handle) == null) {
+                T remove(int handle) {
+                final obj = maybeRemove(handle);
+                if (obj == null) {
                     throw UniffiInternalError(
                         UniffiInternalError.unexpectedStaleHandle, "Handle not found");
                 }
+                return obj;
                 }
 
                 T? maybeRemove(int handle) {
