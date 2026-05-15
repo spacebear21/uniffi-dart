@@ -393,6 +393,12 @@ pub fn generate_callback_functions(
                 quote!()
             };
 
+            let async_error_handling = callback_error_handling(
+                m.throws_type(),
+                type_helper,
+                quote!(resultStructPtr.ref.callStatus),
+            );
+
             quote! {
                 void $callback_method_name(
                     int uniffiHandle,
@@ -435,9 +441,7 @@ pub fn generate_callback_functions(
                             effectiveState.cancelled = true;
                             final resultStructPtr = calloc<$struct_tokens_alt>();
                             try {
-                                resultStructPtr.ref.callStatus.code = CALL_UNEXPECTED_ERROR;
-                                resultStructPtr.ref.callStatus.errorBuf =
-                                    FfiConverterString.lower(e.toString());
+                                $async_error_handling
                                 callback(uniffiCallbackData, resultStructPtr.ref);
                             } finally {
                                 calloc.free(resultStructPtr);
@@ -460,6 +464,8 @@ pub fn generate_callback_functions(
 
             // Get the appropriate out return type
             let out_return_type = DartCodeOracle::callback_out_return_type(m.return_type());
+            let sync_error_handling =
+                callback_error_handling(m.throws_type(), type_helper, quote!(status));
 
             quote! {
                 void $callback_method_name(int uniffiHandle, $(for param in &param_types => $param,) $out_return_type outReturn, Pointer<RustCallStatus> callStatus) {
@@ -469,8 +475,7 @@ pub fn generate_callback_functions(
                         $(arg_lifts)
                         $call_dart_method
                     } catch (e) {
-                        status.code = CALL_UNEXPECTED_ERROR;
-                        status.errorBuf = FfiConverterString.lower(e.toString());
+                        $sync_error_handling
                     }
                 }
 
@@ -517,6 +522,33 @@ pub fn generate_callback_functions(
 
         final Pointer<NativeFunction<$clone_callback_type>> $clone_callback_pointer =
             Pointer.fromFunction<$clone_callback_type>($clone_callback_fn, 0);
+    }
+}
+
+fn callback_error_handling(
+    throws_type: Option<&Type>,
+    type_helper: &dyn TypeHelperRenderer,
+    status: dart::Tokens,
+) -> dart::Tokens {
+    if let Some(error_type) = throws_type {
+        let error_type_label = error_type
+            .as_renderable()
+            .render_type(error_type, type_helper);
+        let error_lower = error_type.as_codetype().ffi_converter_name();
+        quote! {
+            if (e is $error_type_label) {
+                $(&status).code = CALL_ERROR;
+                $(&status).errorBuf = $error_lower.lower(e);
+            } else {
+                $(&status).code = CALL_UNEXPECTED_ERROR;
+                $(&status).errorBuf = FfiConverterString.lower(e.toString());
+            }
+        }
+    } else {
+        quote! {
+            $(&status).code = CALL_UNEXPECTED_ERROR;
+            $(&status).errorBuf = FfiConverterString.lower(e.toString());
+        }
     }
 }
 

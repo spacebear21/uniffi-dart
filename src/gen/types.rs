@@ -128,6 +128,9 @@ impl Renderer<(FunctionDefinition, dart::Tokens)> for TypeHelpersRenderer<'_> {
                 if let Some(ret) = method.return_type() {
                     ret.as_renderable().render_type(ret, self);
                 }
+                if let Some(error_type) = method.throws_type() {
+                    error_type.as_renderable().render_type(error_type, self);
+                }
             }
         }
 

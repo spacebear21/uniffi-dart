@@ -11,9 +11,8 @@ class DartGetters extends ForeignGetters {
       // Throw a UniFFI-generated exception type corresponding to BadArgument
       throw SimpleException.badArgument;
     }
-    if (v == 'UnexpectedException') {
-      // Throw a UniFFI-generated exception type corresponding to UnexpectedError
-      throw SimpleException.unexpectedError;
+    if (v == 'UnexpectedError') {
+      throw StateError('unexpected value');
     }
     return arg2 ? v : '1234567890123';
   }
@@ -24,7 +23,7 @@ class DartGetters extends ForeignGetters {
       throw ReallyBadArgumentComplexException(20); // Example of a complex error
     }
     if (v == 'UnexpectedError') {
-      throw UnexpectedErrorWithReasonComplexException("something failed");
+      throw StateError('unexpected value');
     }
     return arg2 ? v?.toUpperCase() : v;
   }
@@ -38,7 +37,7 @@ class DartGetters extends ForeignGetters {
       throw SimpleException.badArgument;
     }
     if (v == 'UnexpectedError') {
-      throw SimpleException.unexpectedError;
+      throw StateError('unexpected value');
     }
   }
 
@@ -173,15 +172,18 @@ void main() {
     expect(nullResult, isNull);
   });
 
-  test('Rust-owned with_foreign callback can be lifted and called from Dart', () {
-    final persister = InMemoryEventPersister().asPersister();
+  test(
+    'Rust-owned with_foreign callback can be lifted and called from Dart',
+    () {
+      final persister = InMemoryEventPersister().asPersister();
 
-    persister.save('receiver-created');
-    persister.save('receiver-saved');
+      persister.save('receiver-created');
+      persister.save('receiver-saved');
 
-    expect(persister.load(), equals(['receiver-created', 'receiver-saved']));
-    persister.close();
-  });
+      expect(persister.load(), equals(['receiver-created', 'receiver-saved']));
+      persister.close();
+    },
+  );
 
   test('Rust-owned with_foreign callback can be passed back into Rust', () {
     final persister = InMemoryEventPersister().asPersister();
@@ -192,44 +194,67 @@ void main() {
     );
   });
 
-  // test('getString throws SimpleException.BadArgument', () {
-  //   final v = rustGetters.getString(callback, "BadArgument", true);
-  //   expect(v, throwsA(isA<Exception>()));
-  // });
+  test('getString preserves expected SimpleException.BadArgument', () {
+    expect(
+      () => rustGetters.getString(
+        callback: callback,
+        v: "BadArgument",
+        arg2: true,
+      ),
+      throwsA(SimpleException.badArgument),
+    );
+  });
 
-  // test('getString throws SimpleException.UnexpectedException', () {
-  //   expect(() => rustGetters.getString(callback, "UnexpectedError", false),
-  //       throwsA(isA<Exception>));
-  // });
+  test('getString maps unexpected callback exception through SimpleError', () {
+    expect(
+      () => rustGetters.getString(
+        callback: callback,
+        v: "UnexpectedError",
+        arg2: false,
+      ),
+      throwsA(SimpleException.unexpectedError),
+    );
+  });
 
-  // test('getOption throws ReallyBadArgumentComplexException', () {
-  //   // We expect ReallyBadArgumentComplexException with code=20
-  //   expect(
-  //       () => rustGetters.getOption(callback, "BadArgument", false),
-  //       throwsA(predicate(
-  //           (e) => e is ReallyBadArgumentComplexException && e.code == 20)));
-  // });
+  test('getOption preserves expected ReallyBadArgumentComplexException', () {
+    expect(
+      () => rustGetters.getOption(
+        callback: callback,
+        v: "BadArgument",
+        arg2: false,
+      ),
+      throwsA(
+        predicate(
+          (e) => e is ReallyBadArgumentComplexException && e.code == 20,
+        ),
+      ),
+    );
+  });
 
-  // test('getOption throws UnexpectedExceptionWithReasonComplexException', () {
-  //   // We expect UnexpectedExceptionWithReasonComplexException with reason matching "something failed"
-  //   expect(
-  //       () => rustGetters.getOption(callback, "UnexpectedError", false),
-  //       throwsA(predicate((e) =>
-  //           e is UnexpectedExceptionWithReasonComplexException &&
-  //           e.reason == Exception("something failed").toString())));
-  // });
+  test('getOption maps unexpected callback exception through ComplexError', () {
+    expect(
+      () => rustGetters.getOption(
+        callback: callback,
+        v: "UnexpectedError",
+        arg2: false,
+      ),
+      throwsA(isA<UnexpectedErrorWithReasonComplexException>()),
+    );
+  });
 
-  // test('getNothing throws SimpleException.BadArgument', () {
-  //   rustGetters.getNothing(callback, "BadArgument");
-  //   // expect(() => rustGetters.getNothing(callback, "BadArgument"),
-  //   //     throwsA(isA<SimpleException>()));
-  // });
+  test('getNothing preserves expected SimpleException.BadArgument', () {
+    expect(
+      () => rustGetters.getNothing(callback: callback, v: "BadArgument"),
+      throwsA(SimpleException.badArgument),
+    );
+  });
 
-  // test('getNothing throws SimpleException.UnexpectedException', () {
-  //   rustGetters.getNothing(callback, "UnexpectedError");
-  //   // expect(() => rustGetters.getNothing(callback, "UnexpectedError"),
-  //   //     throwsA(isA<SimpleException>()));
-  // });
+  test('getNothing maps unexpected callback exception through SimpleError', () {
+    expect(
+      () => rustGetters.getNothing(callback: callback, v: "UnexpectedError"),
+      throwsA(SimpleException.unexpectedError),
+    );
+  });
 
   // test('destroy RustGetters', () {
   //   rustGetters.dispose();
