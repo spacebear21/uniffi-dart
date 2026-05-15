@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 mod callback_interface;
-use callback_interface::TestCallbackInterface;
+pub use callback_interface::{OtherCallbackInterface, TestCallbackInterface};
 
 #[derive(uniffi::Record)]
 pub struct One {
