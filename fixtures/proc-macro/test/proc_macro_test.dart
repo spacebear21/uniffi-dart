@@ -1,5 +1,48 @@
+import 'dart:typed_data';
+
 import 'package:test/test.dart';
 import '../proc_macro.dart';
+
+class DartOtherCallback implements OtherCallbackInterface {
+  @override
+  int multiply(int a, int b) => a * b;
+}
+
+class DartTestCallback implements TestCallbackInterface {
+  var didNothing = false;
+
+  @override
+  void doNothing() {
+    didNothing = true;
+  }
+
+  @override
+  int add(int a, int b) => a + b;
+
+  @override
+  int optional(int? a) => a ?? -1;
+
+  @override
+  Uint8List withBytes(RecordWithBytes rwb) {
+    return Uint8List.fromList(rwb.someBytes.reversed.toList());
+  }
+
+  @override
+  int tryParseInt(String value) {
+    if (value == 'bad') {
+      throw InvalidInputBasicException();
+    }
+    return int.parse(value);
+  }
+
+  @override
+  int callbackHandler(Object o) {
+    return o.isHeavy() == MaybeBool.uncertain ? 42 : -1;
+  }
+
+  @override
+  OtherCallbackInterface getOtherCallbackInterface() => DartOtherCallback();
+}
 
 void main() {
   group('ProcMacro', () {
@@ -45,18 +88,34 @@ void main() {
           'trait definitions, HashMap support, and UDL/proc-macro interoperability',
     );
 
-    test(
-      'callback interfaces',
-      () {
-        // This test will fail until callback interface support is implemented
-        // Expected functionality:
-        // - Callback traits with #[uniffi::export(with_foreign)]
-        // - Complex callback patterns with multiple traits
-        // - Error handling in callbacks
-      },
-      skip:
-          'Blocked by callback interface support: #[uniffi::export(with_foreign)] traits',
-    );
+    test('callback interfaces', () {
+      final callback = DartTestCallback();
+
+      callbackDoNothing(callback: callback);
+      expect(callback.didNothing, isTrue);
+      expect(callbackAdd(callback: callback, a: 2, b: 3), 5);
+      expect(callbackOptional(callback: callback, value: null), -1);
+      expect(callbackOptional(callback: callback, value: 9), 9);
+      expect(
+        callbackWithBytes(
+          callback: callback,
+          bytes: Uint8List.fromList([1, 2, 3]),
+        ),
+        [3, 2, 1],
+      );
+      expect(callbackTryParseInt(callback: callback, value: '42'), 42);
+      expect(callbackHandler(callback: callback), 42);
+      expect(callbackGetOtherMultiply(callback: callback, a: 6, b: 7), 42);
+    });
+
+    test('callback interfaces preserve expected errors', () {
+      final callback = DartTestCallback();
+
+      expect(
+        () => callbackTryParseInt(callback: callback, value: 'bad'),
+        throwsA(isA<InvalidInputBasicException>()),
+      );
+    });
 
     test(
       'trait objects',
