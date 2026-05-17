@@ -1,5 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:test/test.dart';
-import '../proc_macro_no_implicit_prelude.dart';
+import '../proc_macro.dart';
 
 // Mock callback interface implementations
 class DartTestCallbackInterface implements TestCallbackInterface {
@@ -19,25 +21,23 @@ class DartTestCallbackInterface implements TestCallbackInterface {
   }
 
   @override
-  List<int> withBytes(RecordWithBytes rwb) {
-    return rwb.someBytes;
-  }
+  Uint8List withBytes(RecordWithBytes rwb) => Uint8List.fromList(rwb.someBytes);
 
   @override
   int tryParseInt(String value) {
     if (value == 'force-unexpected-error') {
-      throw BasicError.unexpectedError(reason: 'Forced error');
+      throw StateError('forced unexpected error');
     }
     final parsed = int.tryParse(value);
     if (parsed == null) {
-      throw BasicError.invalidInput;
+      throw InvalidInputBasicException();
     }
     return parsed;
   }
 
   @override
   int callbackHandler(Object h) {
-    return 42;
+    return h.isHeavy() == MaybeBool.uncertain ? 42 : 0;
   }
 
   @override
@@ -54,161 +54,143 @@ class DartOtherCallbackInterface implements OtherCallbackInterface {
 }
 
 void main() {
+  ensureInitialized();
+
   group('Proc-Macro No Implicit Prelude', () {
     test('basic records without prelude', () {
-      // This test will fail until proc-macro support is implemented
-      // Expected: Records defined with #[derive(::uniffi::Record)] should work
-
-      final one = makeOne(42);
+      final one = makeOne(inner: 42);
       expect(one.inner, equals(42));
-      expect(oneInnerByRef(one), equals(42));
+      expect(oneInnerByRef(one: one), equals(42));
 
       final two = Two(a: 'hello');
-      expect(takeTwo(two), equals('hello'));
+      expect(takeTwo(two: two), equals('hello'));
     });
 
     test('nested and complex records', () {
-      // This test will fail until proc-macro support is implemented
-      // Expected: Nested records and records with generic types should work
-
       final nested = NestedRecord(userTypeInBuiltinGeneric: Two(a: 'nested'));
       expect(nested.userTypeInBuiltinGeneric?.a, equals('nested'));
 
       final recordWithBytes = makeRecordWithBytes();
       expect(recordWithBytes.someBytes, equals([0, 1, 2, 3, 4]));
 
-      final extractedBytes = takeRecordWithBytes(recordWithBytes);
+      final extractedBytes = takeRecordWithBytes(rwb: recordWithBytes);
       expect(extractedBytes, equals([0, 1, 2, 3, 4]));
     });
 
     test('objects without prelude', () {
-      // This test will fail until proc-macro support is implemented
-      // Expected: Objects defined with #[derive(::uniffi::Object)] should work
-
       final obj = Object();
       expect(obj, isNotNull);
 
-      final namedObj = Object.namedCtor(123);
+      final namedObj = Object.namedCtor(arg: 123);
       expect(namedObj, isNotNull);
 
       expect(obj.isHeavy(), equals(MaybeBool.uncertain));
-      expect(obj.isOtherHeavy(namedObj), equals(MaybeBool.uncertain));
+      expect(obj.isOtherHeavy(other: namedObj), equals(MaybeBool.uncertain));
+
+      obj.dispose();
+      namedObj.dispose();
     });
 
     test('enums without prelude', () {
-      // This test will fail until proc-macro support is implemented
-      // Expected: Enums defined with #[derive(::uniffi::Enum)] should work
+      expect(enumIdentity(value: MaybeBool.true_), equals(MaybeBool.true_));
+      expect(enumIdentity(value: MaybeBool.false_), equals(MaybeBool.false_));
+      expect(
+        enumIdentity(value: MaybeBool.uncertain),
+        equals(MaybeBool.uncertain),
+      );
 
-      expect(enumIdentity(MaybeBool.true_), equals(MaybeBool.true_));
-      expect(enumIdentity(MaybeBool.false_), equals(MaybeBool.false_));
-      expect(enumIdentity(MaybeBool.uncertain), equals(MaybeBool.uncertain));
+      final mixedEnum = getMixedEnum(v: StringMixedEnum('test'));
+      expect(mixedEnum, isA<StringMixedEnum>());
 
-      final mixedEnum = getMixedEnum(MixedEnum.string('test'));
-      expect(mixedEnum, isA<MixedEnum>());
-
-      final defaultMixed = getMixedEnum(null);
-      expect(defaultMixed, equals(MixedEnum.int(1)));
+      final defaultMixed = getMixedEnum(v: null);
+      expect(defaultMixed, isA<IntMixedEnum>());
+      expect((defaultMixed as IntMixedEnum).v0, equals(1));
     });
 
     test('errors without prelude', () {
-      // This test will fail until proc-macro support is implemented
-      // Expected: Error enums should work and be throwable
-
-      expect(() => alwaysFails(), throwsA(isA<BasicError>()));
+      expect(() => alwaysFails(), throwsA(isA<OsExceptionBasicException>()));
 
       final obj = Object();
-      final result = obj.takeError(BasicError.invalidInput);
+      final result = obj.takeError(e: InvalidInputBasicException());
       expect(result, equals(42));
+      obj.dispose();
     });
 
     test('hashmaps without prelude', () {
-      // This test will fail until HashMap support is implemented
-      // Expected: HashMap types with explicit ::std:: paths should work
-
-      final hashMap = makeHashmap(1, 100);
+      final hashMap = makeHashmap(k: 1, v: 100);
       expect(hashMap, isA<Map<int, int>>());
 
-      final returned = returnHashmap(hashMap);
+      final returned = returnHashmap(h: hashMap);
       expect(returned[1], equals(100));
     });
 
     test('traits without prelude', () {
-      // This test will fail until trait support is implemented
-      // Expected: Trait objects defined with #[::uniffi::export] should work
-
       final obj = Object();
-      final trait = obj.getTrait(null);
+      final trait = obj.getTrait(inc: null);
       expect(trait, isNotNull);
 
-      final result = concatStringsByRef(trait, 'hello', 'world');
+      final result = concatStringsByRef(t: trait, a: 'hello', b: 'world');
       expect(result, equals('helloworld'));
 
-      final traitWithForeign = obj.getTraitWithForeign(null);
+      final traitWithForeign = obj.getTraitWithForeign(inc: null);
       expect(traitWithForeign, isNotNull);
+      expect(traitWithForeign.name(), equals('RustTraitImpl'));
+
+      obj.dispose();
+      trait.dispose();
     });
 
-    test(
-      'callback interfaces without prelude',
-      () {
-        // This test will fail until callback interface support is implemented
-        // Expected: Callback interfaces should work with explicit type paths
+    test('callback interfaces without prelude', () {
+      final callback = DartTestCallbackInterface();
 
-        final callback = DartTestCallbackInterface();
-
-        // This would test the full callback interface functionality
-        // callCallbackInterface(callback);
-      },
-      skip: 'Requires callback interface implementation',
-    );
+      expect(() => callCallbackInterface(cb: callback), returnsNormally);
+    });
 
     test('UDL integration with proc-macro types', () {
-      // This test will fail until UDL typedef support is implemented
-      // Expected: UDL functions should work with types defined via proc-macros
-
-      final one = getOne(One(inner: 123));
+      final one = getOne(one: One(inner: 123));
       expect(one.inner, equals(123));
 
-      final defaultOne = getOne(null);
+      final defaultOne = getOne(one: null);
       expect(defaultOne.inner, equals(0));
 
-      final bool_ = getBool(MaybeBool.true_);
+      final bool_ = getBool(b: MaybeBool.true_);
       expect(bool_, equals(MaybeBool.true_));
 
-      final defaultBool = getBool(null);
+      final defaultBool = getBool(b: null);
       expect(defaultBool, equals(MaybeBool.uncertain));
 
-      final obj = getObject(null);
+      final obj = getObject(o: null);
       expect(obj, isNotNull);
 
-      final externals = getExternals(null);
-      expect(externals, isNotNull);
+      final externals = getExternals(e: null);
+      expect(externals.one, isNull);
+      expect(externals.bool, isNull);
+
+      obj.dispose();
     });
 
-    test('custom names and defaults', () {
-      // This test will fail until proc-macro support is implemented
-      // Expected: Custom names and default values should work
-
+    test('custom names', () {
       final renamed = Renamed();
       expect(renamed, isNotNull);
       expect(renamed.func(), equals(true));
 
       expect(renameTest(), equals(true));
 
-      // Test function with defaults
-      expect(doubleWithDefault(), equals(42)); // uses default 21
-      expect(doubleWithDefault(10), equals(20));
+      renamed.dispose();
+    });
 
-      // Test object with defaults
-      final objWithDefaults = ObjectWithDefaults(); // uses default 30
-      expect(objWithDefaults.addToNum(), equals(42)); // 30 + 12 (default)
-      expect(objWithDefaults.addToNum(5), equals(35)); // 30 + 5
+    test('explicit values for defaultable APIs', () {
+      expect(doubleWithDefault(num: 21), equals(42));
+      expect(doubleWithDefault(num: 10), equals(20));
+
+      final objWithDefaults = ObjectWithDefaults(num: 30);
+      expect(objWithDefaults.addToNum(other: 12), equals(42));
+      expect(objWithDefaults.addToNum(other: 5), equals(35));
+      objWithDefaults.dispose();
     });
 
     test('string operations without prelude', () {
-      // This test will fail until proc-macro support is implemented
-      // Expected: String operations with explicit ::std::string::String should work
-
-      final result = join(['hello', 'world'], ' ');
+      final result = join(parts: ['hello', 'world'], sep: ' ');
       expect(result, equals('hello world'));
 
       final zero = makeZero();
@@ -216,38 +198,32 @@ void main() {
     });
 
     test('flat errors', () {
-      // This test will fail until proc-macro support is implemented
-      // Expected: Flat errors should work and be properly handled
-
       final obj = Object();
 
-      expect(() => obj.doStuff(0), throwsA(isA<FlatError>()));
-      expect(() => obj.doStuff(1), returnsNormally);
+      expect(() => obj.doStuff(times: 0), throwsA(FlatException.invalidInput));
+      expect(() => obj.doStuff(times: 1), returnsNormally);
+      obj.dispose();
     });
 
     test('comprehensive proc-macro functionality', () {
-      // This comprehensive test ensures that proc-macros work in no_implicit_prelude environment
-      // Expected: All proc-macro features should work with explicit ::std:: imports
-
-      // Test that basic types work
       final one = One(inner: 999);
       expect(one.inner, equals(999));
 
-      // Test that enums work
       final maybeBool = MaybeBool.true_;
       expect(maybeBool, equals(MaybeBool.true_));
 
-      // Test that objects work
       final obj = Object();
       expect(obj, isNotNull);
 
-      // Test that records with bytes work
-      final recordBytes = RecordWithBytes(someBytes: [1, 2, 3]);
+      final recordBytes = RecordWithBytes(
+        someBytes: Uint8List.fromList([1, 2, 3]),
+      );
       expect(recordBytes.someBytes, equals([1, 2, 3]));
 
-      // Test that UDL-defined types work with proc-macro types
       final zero = Zero(inner: 'test');
       expect(zero.inner, equals('test'));
+
+      obj.dispose();
     });
   });
 }

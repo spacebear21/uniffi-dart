@@ -50,10 +50,10 @@ class DartGetters extends ForeignGetters {
 
 class StoredDartStringifier extends StoredForeignStringifier {
   @override
-  String fromSimpleType(int value) => 'kotlin: $value';
+  String fromSimpleType(int value) => 'dart: $value';
 
   @override
-  String fromComplexType(List<double?>? values) => 'kotlin: $values';
+  String fromComplexType(List<double?>? values) => 'dart: $values';
 }
 
 void main() {
@@ -79,7 +79,6 @@ void main() {
     }
   });
 
-  // TODO: Bring back after we've fully implemented sequences
   test('roundtrip getList through callback', () {
     final flag = true;
     for (final v in [
@@ -261,16 +260,11 @@ void main() {
   //   // No assertions; just ensure no errors are thrown.
   // });
 
-  // test('RustStringifier constructed with callback', () {
-  //   final dartStringifier = StoredDartStringifier();
-  //   final rustStringifier2 = RustStringifier(dartStringifier);
-  //   for (final v in [1, 2]) {
-  //     final expected = dartStringifier.fromSimpleType(v);
-  //     final observed = rustStringifier2.fromSimpleType(v);
-  //     expect(observed, equals(expected));
-  //   }
-  //   rustStringifier2.dispose();
-  // });
+  test('RustStringifier constructed with callback', () {
+    for (final v in [1, 2]) {
+      expect(rustStringifier.fromSimpleType(value: v), equals('dart: $v'));
+    }
+  });
 
   // // Clean up
   // tearDownAll(() {

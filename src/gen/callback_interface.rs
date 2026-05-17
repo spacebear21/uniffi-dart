@@ -108,8 +108,6 @@ pub fn generate_callback_interface(
         })
         .unwrap_or_else(|| quote!());
 
-    // TODO: Use global deduplication to avoid generating duplicate async types
-    // when multiple async callback interfaces are defined
     let mut async_struct_defs: Vec<dart::Tokens> = Vec::new();
     let mut async_completion_typedefs: Vec<dart::Tokens> = Vec::new();
 

@@ -34,6 +34,14 @@ class ErroringAsyncParser extends AsyncParser {
   }
 }
 
+class DedupAsyncParser extends AsyncParserMirror {
+  @override
+  Future<String> mirrorString(int delayMs, int value) async => 'mirror:$value';
+
+  @override
+  Future<void> mirrorDelay(int delayMs) async {}
+}
+
 void main() {
   initialize();
   ensureInitialized();
@@ -347,4 +355,17 @@ void main() {
       throwsA(isA<UnexpectedExceptionParserException>()),
     );
   });
+
+  test(
+    'async callback helper definitions are shared across interfaces',
+    () async {
+      final parser = DedupAsyncParser();
+
+      expect(
+        await mirrorStringUsingTrait(obj: parser, delayMs: 0, value: 42),
+        equals('mirror:42'),
+      );
+      await mirrorDelayUsingTrait(obj: parser, delayMs: 0);
+    },
+  );
 }
