@@ -443,6 +443,13 @@ pub trait AsyncParser: Send + Sync {
     async fn try_delay(&self, delay_ms: String) -> Result<(), ParserError>;
 }
 
+#[uniffi::export(with_foreign)]
+#[async_trait::async_trait]
+pub trait AsyncParserMirror: Send + Sync {
+    async fn mirror_string(&self, delay_ms: i32, value: i32) -> String;
+    async fn mirror_delay(&self, delay_ms: i32);
+}
+
 #[derive(thiserror::Error, uniffi::Error, Debug)]
 pub enum ParserError {
     #[error("NotAnInt")]
@@ -495,6 +502,20 @@ pub async fn cancel_delay_using_trait(obj: Arc<dyn AsyncParser>, delay_ms: i32) 
 
     let future = Abortable::new(obj.delay(delay_ms), abort_registration);
     assert_eq!(future.await, Err(Aborted));
+}
+
+#[uniffi::export]
+pub async fn mirror_string_using_trait(
+    obj: Arc<dyn AsyncParserMirror>,
+    delay_ms: i32,
+    value: i32,
+) -> String {
+    obj.mirror_string(delay_ms, value).await
+}
+
+#[uniffi::export]
+pub async fn mirror_delay_using_trait(obj: Arc<dyn AsyncParserMirror>, delay_ms: i32) {
+    obj.mirror_delay(delay_ms).await
 }
 
 uniffi::include_scaffolding!("api");

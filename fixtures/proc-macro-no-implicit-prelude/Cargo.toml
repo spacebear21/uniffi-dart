@@ -13,8 +13,13 @@ myfeature = []
 
 [dependencies]
 thiserror = "1.0"
-uniffi = "0.31"
+uniffi = { workspace = true, features = ["scaffolding-ffi-buffer-fns"] }
 
 [build-dependencies]
-uniffi-dart = { path = "../../" }
+uniffi-dart = { path = "../../", features = ["build"] }
 camino = "1"
+
+[dev-dependencies]
+uniffi-dart = { path = "../../", features = ["bindgen-tests"] }
+uniffi = { workspace = true, features = ["bindgen-tests"] }
+anyhow = "1"

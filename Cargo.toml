@@ -77,6 +77,8 @@ members = [
     "fixtures/trait-methods",
     "fixtures/trait-interfaces",
     "fixtures/dart_async",
+    "fixtures/proc-macro",
+    "fixtures/proc-macro-no-implicit-prelude",
     #"fixtures/*",
 ]
 

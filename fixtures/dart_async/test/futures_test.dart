@@ -8,6 +8,40 @@ Future<Duration> measureTime(Future<void> Function() action) async {
   return end.difference(start);
 }
 
+class ErroringAsyncParser extends AsyncParser {
+  @override
+  Future<String> asString(int delayMs, int value) async => value.toString();
+
+  @override
+  Future<int> tryFromString(int delayMs, String value) async {
+    if (value == 'bad') {
+      throw NotAnIntParserException();
+    }
+    if (value == 'unexpected') {
+      throw StateError('unexpected value');
+    }
+    return int.parse(value);
+  }
+
+  @override
+  Future<void> delay(int delayMs) async {}
+
+  @override
+  Future<void> tryDelay(String delayMs) async {
+    if (delayMs == 'bad') {
+      throw NotAnIntParserException();
+    }
+  }
+}
+
+class DedupAsyncParser extends AsyncParserMirror {
+  @override
+  Future<String> mirrorString(int delayMs, int value) async => 'mirror:$value';
+
+  @override
+  Future<void> mirrorDelay(int delayMs) async {}
+}
+
 void main() {
   initialize();
   ensureInitialized();
@@ -109,10 +143,16 @@ void main() {
 
   test('broken_sleep', () async {
     final time = await measureTime(() async {
-      await brokenSleep(ms: 100, failAfter: 0); // calls the waker twice immediately
+      await brokenSleep(
+        ms: 100,
+        failAfter: 0,
+      ); // calls the waker twice immediately
       await sleep(ms: 100); // wait for possible failure
 
-      await brokenSleep(ms: 100, failAfter: 100); // calls the waker a second time after 1s
+      await brokenSleep(
+        ms: 100,
+        failAfter: 100,
+      ); // calls the waker a second time after 1s
       await sleep(ms: 200); // wait for possible failure
     });
     expect(time.inMilliseconds >= 400 && time.inMilliseconds <= 600, true);
@@ -244,7 +284,11 @@ void main() {
     final megaphone = await Megaphone.new_();
 
     final time = await measureTime(() async {
-      final result = await sayAfterWithMegaphone(megaphone: megaphone, ms: 100, who: 'Eve');
+      final result = await sayAfterWithMegaphone(
+        megaphone: megaphone,
+        ms: 100,
+        who: 'Eve',
+      );
       expect(result, 'HELLO, EVE!');
     });
     expect(time.inMilliseconds >= 100 && time.inMilliseconds < 200, true);
@@ -286,4 +330,42 @@ void main() {
     expect(items[1].id, 2);
     expect(secondState.reason, 'syncing');
   });
+
+  test('async callback preserves expected parser error', () async {
+    final parser = ErroringAsyncParser();
+    expect(
+      () => tryFromStringUsingTrait(obj: parser, delayMs: 0, value: 'bad'),
+      throwsA(isA<NotAnIntParserException>()),
+    );
+  });
+
+  test('async void callback preserves expected parser error', () async {
+    final parser = ErroringAsyncParser();
+    expect(
+      () => tryDelayUsingTrait(obj: parser, delayMs: 'bad'),
+      throwsA(isA<NotAnIntParserException>()),
+    );
+  });
+
+  test('async callback maps unexpected parser exception', () async {
+    final parser = ErroringAsyncParser();
+    expect(
+      () =>
+          tryFromStringUsingTrait(obj: parser, delayMs: 0, value: 'unexpected'),
+      throwsA(isA<UnexpectedExceptionParserException>()),
+    );
+  });
+
+  test(
+    'async callback helper definitions are shared across interfaces',
+    () async {
+      final parser = DedupAsyncParser();
+
+      expect(
+        await mirrorStringUsingTrait(obj: parser, delayMs: 0, value: 42),
+        equals('mirror:42'),
+      );
+      await mirrorDelayUsingTrait(obj: parser, delayMs: 0);
+    },
+  );
 }

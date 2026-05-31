@@ -76,7 +76,7 @@ interface RustGetters {
 callback interface StoredForeignStringifier {
   string from_simple_type(i32 value);
   // Test if types are collected from callback interfaces.
-  // kotlinc compile time error if not.
+  // Dart compile-time error if not.
   string from_complex_type(sequence<f64?>? values);
 };
 

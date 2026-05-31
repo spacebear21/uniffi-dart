@@ -163,7 +163,7 @@ fn take_record_with_bytes(rwb: RecordWithBytes) -> ::std::vec::Vec<u8> {
 }
 
 #[::uniffi::export]
-fn call_callback_interface(cb: ::std::boxed::Box<dyn TestCallbackInterface>) {
+pub fn call_callback_interface(cb: ::std::sync::Arc<dyn TestCallbackInterface>) {
     use ::std::{assert_eq, matches, option::Option::*, result::Result::*, string::ToString, vec};
 
     cb.do_nothing();

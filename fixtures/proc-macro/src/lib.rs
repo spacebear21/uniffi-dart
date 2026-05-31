@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 mod callback_interface;
-use callback_interface::TestCallbackInterface;
+pub use callback_interface::{OtherCallbackInterface, TestCallbackInterface};
 
 #[derive(uniffi::Record)]
 pub struct One {
@@ -156,6 +156,48 @@ struct Externals {
 
 fn get_externals(e: Option<Externals>) -> Externals {
     e.unwrap_or_default()
+}
+
+#[uniffi::export]
+pub fn callback_do_nothing(callback: Arc<dyn TestCallbackInterface>) {
+    callback.do_nothing()
+}
+
+#[uniffi::export]
+pub fn callback_add(callback: Arc<dyn TestCallbackInterface>, a: i32, b: i32) -> i32 {
+    callback.add(a, b)
+}
+
+#[uniffi::export]
+pub fn callback_optional(callback: Arc<dyn TestCallbackInterface>, value: Option<i32>) -> i32 {
+    callback.optional(value)
+}
+
+#[uniffi::export]
+pub fn callback_with_bytes(callback: Arc<dyn TestCallbackInterface>, bytes: Vec<u8>) -> Vec<u8> {
+    callback.with_bytes(RecordWithBytes { some_bytes: bytes })
+}
+
+#[uniffi::export]
+pub fn callback_try_parse_int(
+    callback: Arc<dyn TestCallbackInterface>,
+    value: String,
+) -> Result<i32, BasicError> {
+    callback.try_parse_int(value)
+}
+
+#[uniffi::export]
+pub fn callback_handler(callback: Arc<dyn TestCallbackInterface>) -> i32 {
+    callback.callback_handler(Object::new())
+}
+
+#[uniffi::export]
+pub fn callback_get_other_multiply(
+    callback: Arc<dyn TestCallbackInterface>,
+    a: i32,
+    b: i32,
+) -> i32 {
+    callback.get_other_callback_interface().multiply(a, b)
 }
 
 uniffi::include_scaffolding!("api");

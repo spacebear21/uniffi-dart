@@ -74,7 +74,7 @@ void main() {
       testNoArgsVoidReturn();
     });
 
-        test('callback interface benchmarking', () {
+    test('callback interface benchmarking', () {
       final callback = DartTestCallbackInterface();
 
       // Test callback methods
@@ -97,9 +97,6 @@ void main() {
     });
 
     test('performance test runner', () {
-      // This test will fail until callback interface support is implemented
-      // Expected: Should be able to run timed performance tests
-
       final callback = DartTestCallbackInterface();
 
       // Run small performance tests
@@ -114,12 +111,12 @@ void main() {
     });
 
     test('full benchmark suite', () {
-      // This test will fail until callback interface support is implemented
-      // Expected: Should be able to run the full benchmark suite
-
       final callback = DartTestCallbackInterface();
 
-      expect(() => runBenchmarks(languageName: 'Dart', cb: callback), returnsNormally);
+      expect(
+        () => runBenchmarks(languageName: 'Dart', cb: callback),
+        returnsNormally,
+      );
     });
   });
 }
