@@ -24,10 +24,7 @@ pub fn get_zen_engine_response() -> ZenEngineResponse {
         result: JsonBuffer(vec![1, 2, 3]),
         trace: Some(HashMap::from([(
             "primary".to_string(),
-            ZenEngineTrace {
-                id: "primary".to_string(),
-                value: JsonBuffer(vec![4, 5, 6]),
-            },
+            ZenEngineTrace { id: "primary".to_string(), value: JsonBuffer(vec![4, 5, 6]) },
         )])),
     }
 }

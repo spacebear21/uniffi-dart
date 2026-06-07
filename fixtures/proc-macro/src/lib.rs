@@ -1,4 +1,5 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 mod callback_interface;
 pub use callback_interface::{OtherCallbackInterface, TestCallbackInterface};
@@ -122,9 +123,7 @@ pub struct Zero {
 
 #[uniffi::export]
 fn make_zero() -> Zero {
-    Zero {
-        inner: String::from("ZERO"),
-    }
+    Zero { inner: String::from("ZERO") }
 }
 
 // UDL functions that reference proc-macro types
