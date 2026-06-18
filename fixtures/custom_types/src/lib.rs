@@ -1,3 +1,9 @@
+// This fixture deliberately uses non-idiomatic, all-caps-acronym type names
+// (`URLString`, `HTTPMetadata`, `APIResult`) to exercise identifier-casing in
+// the Dart generator. That is exactly what `clippy::upper_case_acronyms`
+// (in aggressive mode) would flag, so allow it here on purpose.
+#![allow(clippy::upper_case_acronyms)]
+
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +37,33 @@ pub fn get_zen_engine_response() -> ZenEngineResponse {
 
 pub fn return_zen_engine_response(response: ZenEngineResponse) -> ZenEngineResponse {
     response
+}
+
+// Regression coverage for identifier casing of names containing all-caps
+// acronyms, so `class_name()` normalizes `URLString` to `UrlString`, for example.
+// Here we're testing several examples in different positions.
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct URLString(pub String);
+
+uniffi::custom_newtype!(URLString, String);
+
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HTTPMetadata {
+    pub url: URLString,
+    pub status: u32,
+}
+
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct APIResult {
+    pub primary: HTTPMetadata,
+    pub fallback: Option<HTTPMetadata>,
+}
+
+pub fn roundtrip_api_result(value: APIResult) -> APIResult {
+    value
 }
 
 uniffi::include_scaffolding!("api");

@@ -12,7 +12,22 @@ dictionary ZenEngineResponse {
     record<string, ZenEngineTrace>? trace;
 };
 
+// Acronym-named custom type + records, to guard identifier-casing regressions.
+[Custom]
+typedef string URLString;
+
+dictionary HTTPMetadata {
+    URLString url;
+    u32 status;
+};
+
+dictionary APIResult {
+    HTTPMetadata primary;
+    HTTPMetadata? fallback;
+};
+
 namespace custom_types {
     ZenEngineResponse get_zen_engine_response();
     ZenEngineResponse return_zen_engine_response(ZenEngineResponse response);
+    APIResult roundtrip_api_result(APIResult value);
 };

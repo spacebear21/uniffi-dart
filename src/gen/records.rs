@@ -58,7 +58,7 @@ impl Renderable for RecordCodeType {
 
 pub fn generate_record(obj: &Record, type_helper: &dyn TypeHelperRenderer) -> dart::Tokens {
     let cls_name = &DartCodeOracle::class_name(obj.name());
-    let ffi_conv_name = &DartCodeOracle::class_name(&obj.as_codetype().ffi_converter_name());
+    let ffi_conv_name = &obj.as_codetype().ffi_converter_name();
     let constructor_params: Vec<dart::Tokens> = obj
         .fields()
         .iter()

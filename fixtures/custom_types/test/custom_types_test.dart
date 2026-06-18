@@ -30,4 +30,18 @@ void main() {
     expect(roundTrip.trace!['manual']!.id, equals('manual'));
     expect(roundTrip.trace!['manual']!.value, orderedEquals([6, 5, 4]));
   });
+
+  test('acronym-named custom and record types round trip', () {
+    final value = ApiResult(
+      primary: HttpMetadata(url: 'https://primary.example', status: 200),
+      fallback: HttpMetadata(url: 'https://fallback.example', status: 503),
+    );
+
+    final roundTrip = roundtripApiResult(value: value);
+
+    expect(roundTrip.primary.url, equals('https://primary.example'));
+    expect(roundTrip.primary.status, equals(200));
+    expect(roundTrip.fallback!.url, equals('https://fallback.example'));
+    expect(roundTrip.fallback!.status, equals(503));
+  });
 }
