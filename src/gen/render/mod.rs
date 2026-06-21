@@ -49,10 +49,10 @@ pub trait Renderable {
                 quote!(Map<$(&self.render_type(key_type, type_helper)), $(&self.render_type(value_type, type_helper))>)
             }
             Type::Enum { name, .. } => quote!($(DartCodeOracle::class_name(name))),
-            Type::Record { name, .. } => quote!($name),
-            Type::Custom { name, .. } => quote!($name),
+            Type::Record { name, .. } => quote!($(DartCodeOracle::class_name(name))),
+            Type::Custom { name, .. } => quote!($(DartCodeOracle::class_name(name))),
             Type::Duration => quote!(Duration),
-            Type::CallbackInterface { name, .. } => quote!($name),
+            Type::CallbackInterface { name, .. } => quote!($(DartCodeOracle::class_name(name))),
             _ => todo!("Type::{:?}", ty),
         };
 
